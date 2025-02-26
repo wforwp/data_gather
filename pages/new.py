@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import copy  # ✅ 기존 상태를 안전하게 복사하기 위해 추가
 
 # 데이터 저장 경로 설정
 DATA_FILE = 'data.csv'
@@ -30,18 +31,22 @@ st.markdown(f"**요청번호:** {request_number} (자동생성)")
 requester = st.text_input("요청자").strip()
 request_title = st.text_input("요청 제목").strip()
 
-# ✅ 항목 추가를 위한 세션 상태 초기화
-if 'fields' not in st.session_state or st.session_state.get('current_request_number') != request_number:
-    st.session_state.fields = []
+# ✅ ✅ 항목 추가를 위한 세션 상태 초기화 (초기 상태를 강제 설정)
+if "fields" not in st.session_state or st.session_state.get("current_request_number") != request_number:
+    st.session_state.fields = []  # ✅ 강제 초기화하여 항목이 자동 추가되지 않도록 설정
     st.session_state.current_request_number = request_number
 
-# ✅ 항목 추가 버튼 클릭 시 실행될 함수
+# ✅ 항목 추가 버튼 클릭 시 실행될 함수 (중복 방지)
 def add_field():
-    st.session_state.fields.append({"레이블": "", "데이터 타입": "문자"})
+    new_fields = copy.deepcopy(st.session_state.fields)  # ✅ 기존 리스트를 안전하게 복사
+    new_fields.append({"레이블": "", "데이터 타입": "문자"})
+    st.session_state.fields = new_fields  # ✅ 변경된 리스트를 직접 할당하여 업데이트
 
 # ✅ 항목 삭제 버튼 클릭 시 실행될 함수
 def remove_field(index):
-    del st.session_state.fields[index]
+    new_fields = copy.deepcopy(st.session_state.fields)  # ✅ 리스트 복사
+    del new_fields[index]
+    st.session_state.fields = new_fields  # ✅ 직접 업데이트
 
 # ✅ 항목 관리 인터페이스
 st.subheader("입력 항목 정의")
@@ -50,14 +55,17 @@ field_container = st.container()
 for idx, field in enumerate(st.session_state.fields):
     cols = field_container.columns([4, 3, 2])
     with cols[0]:
-        field["레이블"] = st.text_input(f"항목 레이블 {idx+1}", value=field["레이블"], key=f"label_{idx}")
+        st.session_state.fields[idx]["레이블"] = st.text_input(
+            f"항목 레이블 {idx+1}", value=field["레이블"], key=f"label_{idx}"
+        )
     with cols[1]:
-        field["데이터 타입"] = st.selectbox(f"데이터 타입 {idx+1}", ["문자", "숫자", "날짜"],
-                                        index=["문자", "숫자", "날짜"].index(field["데이터 타입"]), key=f"type_{idx}")
+        st.session_state.fields[idx]["데이터 타입"] = st.selectbox(
+            f"데이터 타입 {idx+1}", ["문자", "숫자", "날짜"],
+            index=["문자", "숫자", "날짜"].index(field["데이터 타입"]), key=f"type_{idx}"
+        )
     with cols[2]:
         if st.button("삭제", key=f"remove_{idx}"):
             remove_field(idx)
-            st.experimental_rerun()
 
 # ✅ 항목 추가 버튼
 st.button("항목 추가", on_click=add_field)
